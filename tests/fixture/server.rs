@@ -2,7 +2,8 @@ use std::{error::Error, net::SocketAddr, time::Duration};
 
 use async_graphql::{Context, Data, Object, Schema, Subscription};
 use async_graphql_warp::{graphql_protocol, GraphQLWebSocket};
-use futures_util::{stream, Future, Stream};
+use futures::Stream;
+use futures_util::{stream, Future};
 use serde::Deserialize;
 use tokio::time;
 use warp::{ws::Ws, Filter};
@@ -80,17 +81,20 @@ impl Mutation {
 
 #[Subscription]
 impl Subscription {
-    async fn ticker(&self, initial: Option<i32>) -> impl Stream<Item = i32> {
+    async fn ticker(&self, initial: Option<i32>) -> async_graphql::Result<impl Stream<Item = i32>> {
         let value = match initial {
             Some(v) => v,
             None => 0,
         };
         let interval = time::interval(Duration::from_millis(100));
-        stream::unfold((interval, value), |(mut interval, mut value)| async move {
-            interval.tick().await;
-            let current = value.clone();
-            value += 1;
-            Some((current, (interval, value)))
-        })
+        Ok(stream::unfold(
+            (interval, value),
+            |(mut interval, mut value)| async move {
+                interval.tick().await;
+                let current = value.clone();
+                value += 1;
+                Some((current, (interval, value)))
+            },
+        ))
     }
 }

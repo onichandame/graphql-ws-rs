@@ -22,7 +22,7 @@ async fn subscription() -> Result<(), Error> {
     struct Data {
         ticker: i32,
     }
-    for i in 0..3 {
+    for i in 0..10 {
         let data = receiver.recv().await.ok_or("err")?;
         match data {
             Response::Normal(data) => {
