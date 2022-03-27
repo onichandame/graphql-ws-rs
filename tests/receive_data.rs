@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 
 use fixture::get_server;
 use serde::Deserialize;
-use tokio_graphql_ws::{Client, Response};
+use tokio_graphql_ws::Client;
 
 mod fixture;
 
@@ -18,18 +18,15 @@ async fn receive_data() -> Result<(), Error> {
     let mut receiver = subscriber
         .subscribe("query {greet(name:\"Bob\")}", None, None, None)
         .await?;
-    let data = receiver.recv().await.ok_or("err")?;
     #[derive(Deserialize)]
     struct Data {
         greet: String,
     }
-    match data {
-        Response::Normal(data) => {
-            let data = serde_json::from_value::<Data>(data.data)?;
-            assert_eq!("hello Bob", data.greet);
-        }
-        Response::Error(_) => return Err("failed to receive data".into()),
-    };
+    let data = receiver.recv().await.ok_or("err")??;
+    assert_eq!(
+        "hello Bob",
+        serde_json::from_value::<Data>(data.data)?.greet
+    );
     client.abort();
     server.abort();
     Ok(())

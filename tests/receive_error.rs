@@ -1,7 +1,7 @@
 use std::error::Error as StdError;
 
 use fixture::get_server;
-use tokio_graphql_ws::{Client, Response};
+use tokio_graphql_ws::Client;
 
 mod fixture;
 
@@ -17,13 +17,8 @@ async fn receive_error() -> Result<(), Error> {
     let mut receiver = subscriber
         .subscribe("query {error}", None, None, None)
         .await?;
-    let data = receiver.recv().await.ok_or("err")?;
-    match data {
-        Response::Normal(data) => {
-            assert!(data.errors.is_some());
-        }
-        Response::Error(_) => return Err("failed to receive data".into()),
-    };
+    let data = receiver.recv().await.ok_or("err")??;
+    assert!(data.errors.is_some());
     client.abort();
     server.abort();
     Ok(())

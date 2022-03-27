@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use fixture::get_server;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio_graphql_ws::{Client, ClientActor, Response};
+use tokio_graphql_ws::{Client, ClientActor};
 
 mod fixture;
 
@@ -22,18 +22,15 @@ async fn connection_init() -> Result<(), Error> {
     let mut receiver = subscriber
         .subscribe("query {greet}", None, None, None)
         .await?;
-    let data = receiver.recv().await.ok_or("err")?;
     #[derive(Deserialize)]
     struct Data {
         greet: String,
     }
-    match data {
-        Response::Normal(data) => {
-            let data = serde_json::from_value::<Data>(data.data)?;
-            assert_eq!("hello Alice", data.greet);
-        }
-        Response::Error(_) => return Err("failed to receive data".into()),
-    };
+    let data = receiver.recv().await.ok_or("err")??;
+    assert_eq!(
+        "hello Alice",
+        serde_json::from_value::<Data>(data.data)?.greet
+    );
     client.abort();
     server.abort();
     Ok(())

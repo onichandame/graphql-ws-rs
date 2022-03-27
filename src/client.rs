@@ -9,7 +9,6 @@ use crate::{
     connection::connect_ws,
     error::Error,
     message::{ws_close_message, Message, MessageType},
-    response::Response,
     subscriber::Subscriber,
 };
 
@@ -81,7 +80,7 @@ impl<TActor: ClientActor> Client<TActor> {
                                     let id=msg.id.ok_or("next message missing id").unwrap();
                                     let sender=subscribers.get(&id).ok_or("cannot next on a closed subscription").unwrap();
                                     let payload=msg.payload.ok_or("no payload received from next message").unwrap();
-                                    if sender.send(Response::Normal(serde_json::from_value(payload).unwrap())).await.is_err() {
+                                    if sender.send(Ok(serde_json::from_value(payload).unwrap())).await.is_err() {
                                             subscribers.remove(&id);
                                     }
                                 },
@@ -89,7 +88,7 @@ impl<TActor: ClientActor> Client<TActor> {
                                     let id=msg.id.ok_or("error message missing id").unwrap();
                                     let sender=subscribers.get(&id).ok_or("cannot error on a closed subscription").unwrap();
                                     let payload=msg.payload.ok_or("no payload received from error message").unwrap();
-                                    if sender.send(Response::Error(serde_json::from_value(payload).unwrap())).await.is_err(){
+                                    if sender.send(Err(serde_json::from_value(payload).unwrap())).await.is_err(){
                                         subscribers.remove(&id);
                                     }
                                 },

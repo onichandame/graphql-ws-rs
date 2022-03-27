@@ -13,4 +13,3 @@ mod subscriber;
 pub use client::Client;
 pub use client_actor::ClientActor;
 pub use client_cfg::ClientConfig;
-pub use response::Response;
