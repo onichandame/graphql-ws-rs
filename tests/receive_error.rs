@@ -1,7 +1,9 @@
 use std::error::Error as StdError;
 
-use fixture::get_server;
-use tokio_graphql_ws::Client;
+use futures_util::StreamExt;
+use tokio_graphql_ws::{Request, Subscriber};
+
+use crate::fixture::{get_server_client, DefaultClient};
 
 mod fixture;
 
@@ -9,17 +11,25 @@ type Error = Box<dyn StdError + Send + Sync>;
 
 #[tokio::test]
 async fn receive_error() -> Result<(), Error> {
-    let (server_addr, server) = get_server().await?;
+    let (server, client) = get_server_client(DefaultClient::new).await?;
     let server = tokio::spawn(server);
-    let client = Client::new().set_url(&format!("ws://{}", &server_addr.to_string()));
-    let (connection, subscriber) = client.try_connect().await?;
-    let client = tokio::spawn(connection);
-    let mut receiver = subscriber
-        .subscribe("query {error}", None, None, None)
-        .await?;
-    let data = receiver.recv().await.ok_or("err")??;
-    assert!(data.errors.is_some());
-    client.abort();
+    let data = client
+        .subscribe(&Request::<(), ()> {
+            query: "".to_owned(),
+            ..Default::default()
+        })
+        .await?
+        .next()
+        .await
+        .ok_or("err")??;
+    match data.errors {
+        Some(v) => {
+            assert!(v.len() > 0)
+        }
+        None => {
+            panic!("no error is thrown")
+        }
+    }
     server.abort();
     Ok(())
 }

@@ -1,8 +1,8 @@
+use futures_util::StreamExt;
 use std::error::Error as StdError;
+use tokio_graphql_ws::{Request, Subscriber};
 
-use fixture::get_server;
-use serde::Deserialize;
-use tokio_graphql_ws::Client;
+use crate::fixture::{get_server_client, DefaultClient, Ticker};
 
 mod fixture;
 
@@ -10,24 +10,19 @@ type Error = Box<dyn StdError + Send + Sync>;
 
 #[tokio::test]
 async fn subscription() -> Result<(), Error> {
-    let (server_addr, server) = get_server().await?;
+    let (server, client) = get_server_client(DefaultClient::new).await?;
     let server = tokio::spawn(server);
-    let client = Client::new().set_url(&format!("ws://{}", &server_addr.to_string()));
-    let (connection, subscriber) = client.try_connect().await?;
-    let client = tokio::spawn(connection);
-    let mut receiver = subscriber
-        .subscribe("subscription {ticker(initial:0)}", None, None, None)
+    let mut receiver = client
+        .subscribe(&Request::<(), ()> {
+            query: "subscription {ticker(initial:0)}".to_owned(),
+            ..Default::default()
+        })
         .await?;
-    #[derive(Deserialize)]
-    struct Data {
-        ticker: i32,
-    }
     for i in 0..10 {
-        let data = receiver.recv().await.ok_or("err")??;
-        let data = serde_json::from_value::<Data>(data.data)?;
+        let data = receiver.next().await.ok_or("err")??;
+        let data = serde_json::from_value::<Ticker>(data.data)?;
         assert_eq!(i, data.ticker);
     }
-    client.abort();
     server.abort();
     Ok(())
 }
